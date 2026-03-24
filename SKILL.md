@@ -10,10 +10,15 @@ description: |
   (6) 删除正文 H1 标题
   (7) 重命名文件为 {年月}-{slug}.md 格式
 
+  置顶管理：
+  (1) 列出已置顶文章
+  (2) 搜索文章（匹配 title/slug）
+  (3) 设置/取消置顶
+
   触发词：
-  - 单篇：处理这篇博客文章、准备发布这篇博客文章、发布博客文章、整理博客、生成 frontmatter、博客文章分类、图片整理
+  - 发布：处理这篇博客文章、准备发布、发布博客文章、整理博客、生成 frontmatter、博客文章分类、图片整理
   - 批量：处理这些博客文章、批量发布博客文章、处理草稿箱目录、发布草稿箱里的博客文章
-  - 目录：处理 {目录名} 目录的博客文章、发布 {目录名} 里的博客文章、整理 {目录名} 下的博客
+  - 置顶：查看置顶文章、列出置顶、置顶文章列表、搜索文章、找文章、置顶这篇文章、取消置顶、pin 管理
 ---
 
 # Moewah Blog Helper
@@ -108,6 +113,11 @@ python $SKILL_DIR/scripts/publish.py write {文章路径} --category {分类} --
 
 # 归档原文件
 python $SKILL_DIR/scripts/publish.py archive {文章路径}
+
+# 置顶管理
+python $SKILL_DIR/scripts/publish.py list-pinned          # 列出所有置顶文章
+python $SKILL_DIR/scripts/publish.py search "关键词"       # 搜索文章（匹配 title/slug）
+python $SKILL_DIR/scripts/publish.py set-pinned {路径} --status true/false  # 设置置顶状态
 ```
 
 ## 分类规则
@@ -294,3 +304,15 @@ python $SKILL_DIR/scripts/publish.py scan
 | 无 published | 使用当前日期的年月 |
 
 示例：`2026-03-docker-deploy-beginner-guide.md`
+
+## 置顶管理
+
+管理文章置顶状态，详见 [references/pinned-management.md](references/pinned-management.md)。
+
+**核心规则**：
+- 置顶：在 frontmatter 的 `updated` 字段下方添加 `pinned: true`
+- 取消置顶：移除 `pinned` 字段（或设为 `false`）
+
+**典型场景**：
+1. 用户请求查看置顶文章 → 运行 `list-pinned` → 展示结果 → 用户选择取消置顶
+2. 用户提供关键词搜索 → 运行 `search` → 展示匹配文章 → 用户选择置顶/取消

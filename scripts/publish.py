@@ -303,6 +303,120 @@ def write_article(article_path: str, category: str, frontmatter: str, body: str,
     return target_path
 
 
+# ==================== 置顶管理 ====================
+
+def get_all_articles() -> list[str]:
+    """获取博客目录下所有文章"""
+    articles = []
+    if not os.path.exists(BLOG_DIR):
+        print(f"❌ 博客目录不存在: {BLOG_DIR}")
+        return articles
+
+    for root, dirs, files in os.walk(BLOG_DIR):
+        # 跳过 images 目录
+        if "images" in root:
+            continue
+        for file in files:
+            if file.endswith(".md"):
+                articles.append(os.path.join(root, file))
+
+    return sorted(articles)
+
+
+def get_article_info(article_path: str) -> dict:
+    """获取文章关键信息：title, slug, pinned"""
+    frontmatter, _ = read_article(article_path)
+    title = parse_frontmatter_field(frontmatter, "title")
+    slug = parse_frontmatter_field(frontmatter, "slug")
+
+    # 检查 pinned 状态
+    pinned_match = re.search(r'^pinned:\s*(true|false)', frontmatter, re.MULTILINE)
+    pinned = pinned_match.group(1) == "true" if pinned_match else False
+
+    return {
+        "path": article_path,
+        "title": title,
+        "slug": slug,
+        "pinned": pinned
+    }
+
+
+def list_pinned_articles() -> list[dict]:
+    """列出所有置顶文章"""
+    articles = get_all_articles()
+    pinned_articles = []
+
+    for article_path in articles:
+        info = get_article_info(article_path)
+        if info["pinned"]:
+            pinned_articles.append(info)
+
+    return pinned_articles
+
+
+def search_articles(keyword: str) -> list[dict]:
+    """搜索文章（匹配 title 或 slug）"""
+    articles = get_all_articles()
+    results = []
+    keyword_lower = keyword.lower()
+
+    for article_path in articles:
+        info = get_article_info(article_path)
+        # 匹配 title 或 slug
+        if keyword_lower in info["title"].lower() or keyword_lower in info["slug"].lower():
+            results.append(info)
+
+    return results
+
+
+def set_pinned_status(article_path: str, pinned: bool) -> bool:
+    """设置文章置顶状态"""
+    with open(article_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    # 提取 frontmatter
+    match = re.match(r'^(---\s*\n)(.*?)(\n---\s*\n)', content, re.DOTALL)
+    if not match:
+        print(f"❌ 文章没有 frontmatter: {article_path}")
+        return False
+
+    fm_start, frontmatter, fm_end = match.groups()
+    body = content[match.end():]
+
+    # 检查是否已有 pinned 字段
+    pinned_pattern = r'^pinned:\s*(true|false)\s*$'
+    has_pinned = re.search(pinned_pattern, frontmatter, re.MULTILINE)
+
+    if pinned:
+        # 设置置顶
+        if has_pinned:
+            # 更新现有 pinned 值
+            frontmatter = re.sub(pinned_pattern, "pinned: true", frontmatter, flags=re.MULTILINE)
+        else:
+            # 在 updated 字段后添加 pinned
+            updated_pattern = r'^(updated:\s*\d{4}-\d{2}-\d{2})\s*$'
+            if re.search(updated_pattern, frontmatter, re.MULTILINE):
+                frontmatter = re.sub(updated_pattern, r"\1\npinned: true", frontmatter, flags=re.MULTILINE)
+            else:
+                # 在 frontmatter 末尾添加
+                frontmatter = frontmatter.rstrip() + "\npinned: true"
+    else:
+        # 取消置顶
+        if has_pinned:
+            # 移除 pinned 行
+            frontmatter = re.sub(r'^pinned:\s*(true|false)\s*\n?', '', frontmatter, flags=re.MULTILINE)
+        else:
+            print(f"  ℹ️ 文章未置顶，无需取消: {article_path}")
+            return True
+
+    # 写回文件
+    new_content = f"{fm_start}{frontmatter.rstrip()}{fm_end}{body}"
+    with open(article_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+
+    return True
+
+
 # ==================== CLI ====================
 
 def main():
@@ -326,6 +440,17 @@ def main():
     # 归档命令
     archive_parser = subparsers.add_parser("archive", help="归档原文件")
     archive_parser.add_argument("article", help="文章路径")
+
+    # 置顶管理命令
+    list_pinned_parser = subparsers.add_parser("list-pinned", help="列出所有置顶文章")
+
+    search_parser = subparsers.add_parser("search", help="搜索文章（匹配 title 或 slug）")
+    search_parser.add_argument("keyword", help="搜索关键词")
+
+    set_pinned_parser = subparsers.add_parser("set-pinned", help="设置文章置顶状态")
+    set_pinned_parser.add_argument("article", help="文章路径")
+    set_pinned_parser.add_argument("--status", type=lambda x: x.lower() == "true", required=True,
+                                    help="置顶状态: true 或 false")
 
     args = parser.parse_args()
 
@@ -368,6 +493,39 @@ def main():
         if result:
             print(f"✅ 已归档到: {result}")
         # 博客目录中的文章会跳过归档，已在函数内打印提示
+
+    elif args.command == "list-pinned":
+        pinned_articles = list_pinned_articles()
+        if not pinned_articles:
+            print("📭 当前没有置顶文章")
+            return
+        print(f"📌 找到 {len(pinned_articles)} 篇置顶文章:")
+        for i, article in enumerate(pinned_articles, 1):
+            print(f"  {i}. {article['title']}")
+            print(f"     slug: {article['slug']}")
+            print(f"     path: {article['path']}")
+
+    elif args.command == "search":
+        results = search_articles(args.keyword)
+        if not results:
+            print(f"📭 未找到匹配 '{args.keyword}' 的文章")
+            return
+        print(f"🔍 找到 {len(results)} 篇匹配文章:")
+        for i, article in enumerate(results, 1):
+            pinned_mark = "📌 " if article["pinned"] else ""
+            print(f"  {i}. {pinned_mark}{article['title']}")
+            print(f"     slug: {article['slug']}")
+            print(f"     path: {article['path']}")
+
+    elif args.command == "set-pinned":
+        if not os.path.exists(args.article):
+            print(f"❌ 文件不存在: {args.article}")
+            return
+        info = get_article_info(args.article)
+        success = set_pinned_status(args.article, args.status)
+        if success:
+            action = "置顶" if args.status else "取消置顶"
+            print(f"✅ 已{action}: {info['title']}")
 
 
 if __name__ == "__main__":
