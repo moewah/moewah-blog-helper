@@ -321,6 +321,7 @@ def main():
     write_parser.add_argument("article", help="原文章路径")
     write_parser.add_argument("--category", required=True, help="分类")
     write_parser.add_argument("--frontmatter", required=True, help="Frontmatter 内容")
+    write_parser.add_argument("--body", help="正文内容（可选，用于标点修正后的正文）")
 
     # 归档命令
     archive_parser = subparsers.add_parser("archive", help="归档原文件")
@@ -352,6 +353,10 @@ def main():
         # 读取原文正文和现有 frontmatter
         existing_fm, body = read_article(args.article)
         has_existing_fm = bool(existing_fm.strip())
+        # 如果传入了修正后的正文，使用修正后的版本
+        if args.body:
+            body = args.body
+            print("  📝 使用修正后的正文")
         target = write_article(args.article, args.category, args.frontmatter, body, has_existing_fm)
         print(f"✅ 已保存: {target}")
 
