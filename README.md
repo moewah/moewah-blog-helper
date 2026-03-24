@@ -49,6 +49,7 @@ moewah-blog-helper/
     ├── categories.md     # 分类规则
     ├── punctuation-rules.md   # 标点规范
     └── frontmatter-handling.md # Frontmatter 处理规则
+    └── pinned-management.md # Pinned 博客文章置顶管理
 ```
 
 ## 文件命名
