@@ -45,9 +45,9 @@ def parse_frontmatter_field(frontmatter: str, field: str) -> str:
 
 def remove_h1_title(content: str) -> str:
     """删除正文开头的 H1 标题（frontmatter 已定义 title）"""
-    # 匹配 # 标题 格式（H1）
-    # 支持：# Title 或 #Title
-    content = re.sub(r'^#\s+.+\n*', '', content, count=1)
+    # 匹配 # 标题 格式（H1），支持前面有空行
+    # 使用 re.MULTILINE 让 ^ 匹配每行开头
+    content = re.sub(r'^\s*#\s+.+\n*', '', content, count=1, flags=re.MULTILINE)
     # 清除开头多余空行
     content = content.lstrip('\n')
     return content
